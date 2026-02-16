@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vllm-reka"
+version = "0.1.0"
+description = "vLLM plugin for Reka models"
+requires-python = ">=3.9"
+dependencies = [
+    "tiktoken",
+    "regex",
+    "opencv-python",
+    "numpy",
+    "Pillow",
+]
+
+[project.entry-points."vllm.general_plugins"]
+register_reka = "vllm_reka:register"
+
+[tool.setuptools.packages.find]
+include = ["vllm_reka*"]
