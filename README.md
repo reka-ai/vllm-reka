@@ -98,6 +98,13 @@ vllm_reka/
 └── multimodal_utils.py   # Image tiling, video frame sampling, preprocessing
 ```
 
+## Monkey patches
+This plugin contains several monkey patches because we originally developed our model on an older version of vLLM. In the long-term, we plan to open upstream PRs on the vLLM repo so that we can remove them.
+
+Monkey patches were implemented for:
+- Whitespace stripping (`_patch_detokenizer_whitespace_stripping`)
+
+
 ## Dependencies
 
 - `tiktoken` — tokenization

@@ -2,7 +2,43 @@
 # ABOUTME: Called automatically by vLLM's plugin discovery via setup.py entry_points.
 
 
+def _patch_detokenizer_whitespace_stripping():
+    """Patch the detokenizer to strip leading whitespace from generated text.
+
+    Tiktoken tokens include leading whitespace (e.g., " Hello" not "Hello").
+    The detokenizer preserves this in its output, but the first generated
+    token's leading whitespace should be stripped for clean chat responses.
+    Only applies when the tokenizer sets strip_leading_whitespace = True.
+    """
+    from vllm.v1.engine.detokenizer import (
+        BaseIncrementalDetokenizer,
+        SlowIncrementalDetokenizer,
+    )
+
+    _original = BaseIncrementalDetokenizer.get_next_output_text
+
+    def _get_next_output_text(self, finished, delta):
+        text = _original(self, finished, delta)
+        # Only strip for tokenizers that opt in (e.g., YasaTokenizer)
+        if not getattr(getattr(self, 'tokenizer', None),
+                       'strip_leading_whitespace', False):
+            return text
+        # Non-streaming: full text is available, strip it
+        if not delta:
+            return text.lstrip()
+        # Streaming: strip only the first non-empty chunk to remove
+        # the leading space, then pass subsequent chunks through unchanged
+        if not getattr(self, '_first_stripped', False) and text:
+            self._first_stripped = True
+            return text.lstrip()
+        return text
+
+    SlowIncrementalDetokenizer.get_next_output_text = _get_next_output_text
+
+
 def register():
+    _patch_detokenizer_whitespace_stripping()
+
     from transformers import AutoConfig
     from vllm import ModelRegistry
     from vllm.tokenizers import TokenizerRegistry

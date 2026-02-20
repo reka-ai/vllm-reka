@@ -525,6 +525,7 @@ class YasaTokenizer(PreTrainedTokenizer):
     pretrained_vocab_files_map: dict[str, str] = {}
     max_model_input_sizes = {"yasa-model": 2048}
     model_input_names = ["input_ids", "attention_mask"]
+    strip_leading_whitespace = True
 
     def __init__(self, tiktoken_special_tokens=None, **kwargs):
         tiktoken.registry._find_constructors()
