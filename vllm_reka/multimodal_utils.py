@@ -13,11 +13,43 @@ import torch
 from PIL import Image
 from transformers import SiglipImageProcessor
 
+from vllm.model_executor.models.utils import _merge_multimodal_embeddings
 from vllm.multimodal.video import VIDEO_LOADER_REGISTRY, VideoLoader
+
+
+def merge_multimodal_embeddings(
+    input_ids: torch.Tensor,
+    inputs_embeds: torch.Tensor,
+    multimodal_embeddings,
+    placeholder_token_id,
+) -> torch.Tensor:
+    if isinstance(placeholder_token_id, (list, tuple)):
+        is_multimodal = torch.isin(
+            input_ids,
+            torch.tensor(placeholder_token_id, device=input_ids.device),
+        )
+    else:
+        is_multimodal = (input_ids == placeholder_token_id)
+    return _merge_multimodal_embeddings(
+        inputs_embeds, multimodal_embeddings, is_multimodal)
 
 DEFAULT_VIDEO_NUM_FRAMES = 32
 
+# Token IDs shared across multimodal models
+_IMAGE_PLACEHOLDER_TOKEN_ID = 100278
+_START_IMAGE_TOKEN = 100279
+_END_IMAGE_TOKEN = 100280
+_START_VIDEO_TOKEN = 100284
+_END_VIDEO_TOKEN = 100285
+
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
+
+
+def _get_default_video_num_frames(ctx) -> int:
+    """Default video frame count from --media-io-kwargs, or vLLM default."""
+    mm_config = ctx.get_mm_config()
+    return (mm_config.media_io_kwargs.get("video")
+            or {}).get("num_frames", DEFAULT_VIDEO_NUM_FRAMES)
 
 
 @VIDEO_LOADER_REGISTRY.register("yasa")
@@ -414,7 +446,6 @@ class VideoProcessor:
         timestamps_per_video = []
 
         for video in videos:
-            print(f"type of video: {type(video)}")
             frames, metadata = video
             # Convert numpy frames to PIL images
             pil_frames = self.frames_to_pil_images(frames)

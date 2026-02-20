@@ -26,47 +26,19 @@ from vllm.sequence import IntermediateTensors
 
 from vllm.model_executor.models.interfaces import SupportsMultiModal, SupportsPP
 from vllm.model_executor.models.utils import (AutoWeightsLoader, init_vllm_registered_model,
-                    maybe_prefix, _merge_multimodal_embeddings)
+                    maybe_prefix)
 
-
-def merge_multimodal_embeddings(
-    input_ids: torch.Tensor,
-    inputs_embeds: torch.Tensor,
-    multimodal_embeddings,
-    placeholder_token_id,
-) -> torch.Tensor:
-    if isinstance(placeholder_token_id, (list, tuple)):
-        is_multimodal = torch.isin(
-            input_ids,
-            torch.tensor(placeholder_token_id, device=input_ids.device),
-        )
-    else:
-        is_multimodal = (input_ids == placeholder_token_id)
-    return _merge_multimodal_embeddings(
-        inputs_embeds, multimodal_embeddings, is_multimodal)
-from vllm_reka.multimodal_utils import DEFAULT_VIDEO_NUM_FRAMES
-from vllm_reka.multimodal_utils import ImageProcessor
-
-_IMAGE_PLACEHOLDER_TOKEN_ID = 100278
-_START_IMAGE_TOKEN = 100279
-_END_IMAGE_TOKEN = 100280
-IMAGE_TOKEN_PATTERN = r"<\|image_(\d+)\|>"
-
-# Video tokens - frames use the image placeholder token
-_START_VIDEO_TOKEN = 100284
-_END_VIDEO_TOKEN = 100285
-VIDEO_TOKEN_PATTERN = r"<\|video_(\d+)\|>"
+from vllm_reka.multimodal_utils import (DEFAULT_VIDEO_NUM_FRAMES,
+                                        ImageProcessor,
+                                        merge_multimodal_embeddings,
+                                        _IMAGE_PLACEHOLDER_TOKEN_ID,
+                                        _START_IMAGE_TOKEN, _END_IMAGE_TOKEN,
+                                        _START_VIDEO_TOKEN, _END_VIDEO_TOKEN,
+                                        _get_default_video_num_frames)
 
 # Default image size for ConvNextV2
 DEFAULT_IMAGE_SIZE = 224
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
-
-
-def _get_default_video_num_frames(ctx) -> int:
-    """Default video frame count from --media-io-kwargs, or vLLM default."""
-    mm_config = ctx.get_mm_config()
-    return (mm_config.media_io_kwargs.get("video")
-            or {}).get("num_frames", DEFAULT_VIDEO_NUM_FRAMES)
 
 
 class YasaMMLMV2ImagePixelInputs(TypedDict):
