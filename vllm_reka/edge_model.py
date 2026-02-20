@@ -21,13 +21,30 @@ from vllm.multimodal.parse import MultiModalDataItems, MultiModalDataParser
 from vllm.multimodal.processing import (BaseMultiModalProcessor,
                                         BaseProcessingInfo, PromptReplacement,
                                         PromptUpdate, PromptUpdateDetails)
-from vllm.multimodal.profiling import BaseDummyInputsBuilder, ProcessorInputs
-from vllm.multimodal.video import DEFAULT_VIDEO_NUM_FRAMES
+from vllm.multimodal.processing import BaseDummyInputsBuilder, ProcessorInputs
 from vllm.sequence import IntermediateTensors
 
 from vllm.model_executor.models.interfaces import SupportsMultiModal, SupportsPP
 from vllm.model_executor.models.utils import (AutoWeightsLoader, init_vllm_registered_model,
-                    maybe_prefix, merge_multimodal_embeddings)
+                    maybe_prefix, _merge_multimodal_embeddings)
+
+
+def merge_multimodal_embeddings(
+    input_ids: torch.Tensor,
+    inputs_embeds: torch.Tensor,
+    multimodal_embeddings,
+    placeholder_token_id,
+) -> torch.Tensor:
+    if isinstance(placeholder_token_id, (list, tuple)):
+        is_multimodal = torch.isin(
+            input_ids,
+            torch.tensor(placeholder_token_id, device=input_ids.device),
+        )
+    else:
+        is_multimodal = (input_ids == placeholder_token_id)
+    return _merge_multimodal_embeddings(
+        inputs_embeds, multimodal_embeddings, is_multimodal)
+from vllm_reka.multimodal_utils import DEFAULT_VIDEO_NUM_FRAMES
 from vllm_reka.multimodal_utils import ImageProcessor
 
 _IMAGE_PLACEHOLDER_TOKEN_ID = 100278
@@ -156,6 +173,14 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
                                          SupportsPP):
     """YASA Edge MMLM model with ConvNextV2 vision encoder."""
 
+    @classmethod
+    def get_placeholder_str(cls, modality: str, i: int) -> str | None:
+        if modality.startswith("image"):
+            return "<REKA_IMG_TOKEN>"
+        if modality.startswith("video"):
+            return "<REKA_IMG_TOKEN>"
+        return None
+
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
         super().__init__()
         config = vllm_config.model_config.hf_config
@@ -197,11 +222,12 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
                 or not config.text_config.architectures):
             config.text_config.architectures = ["YasaCausalLM"]
 
-        self.language_model = init_vllm_registered_model(
-            vllm_config=vllm_config,
-            hf_config=config.text_config,
-            prefix=maybe_prefix(prefix, "language_model"),
-        )
+        with self._mark_language_model(vllm_config):
+            self.language_model = init_vllm_registered_model(
+                vllm_config=vllm_config,
+                hf_config=config.text_config,
+                prefix=maybe_prefix(prefix, "language_model"),
+            )
 
         self.register_buffer(
             "vision_pos_embed",
@@ -447,7 +473,7 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
             torch.split(vision_embeddings, tokens_per_video, dim=0))
         return embeddings_list
 
-    def get_multimodal_embeddings(self, **kwargs) -> list[torch.Tensor]:
+    def embed_multimodal(self, **kwargs) -> list[torch.Tensor]:
         """Get embeddings for all multimodal inputs."""
         all_embeddings: list[torch.Tensor] = []
         # Process images
@@ -567,7 +593,7 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
         if intermediate_tensors is not None:
             inputs_embeds = None
         elif inputs_embeds is None:
-            vision_embeddings = self.get_multimodal_embeddings(**kwargs)
+            vision_embeddings = self.embed_multimodal(**kwargs)
             inputs_embeds = self.get_input_embeddings(input_ids,
                                                       vision_embeddings)
             input_ids = None
@@ -834,6 +860,7 @@ class YasaMMLMV2DummyInputsBuilder(
         self,
         seq_len: int,
         mm_counts: Mapping[str, int],
+        mm_options=None,
     ) -> ProcessorInputs:
         num_images = mm_counts.get("image", 0)
         num_videos = mm_counts.get("video", 0)

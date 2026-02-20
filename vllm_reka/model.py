@@ -7,7 +7,7 @@ import regex as re
 import torch
 from torch import nn
 
-from vllm.attention import Attention
+from vllm.attention.layer import Attention
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import CacheConfig, VllmConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
@@ -137,12 +137,16 @@ class YasaAttention(nn.Module):
         if is_gguf and config.model_type == "llama":
             is_neox_style = False
 
+        rope_parameters = {
+            "rope_theta": rope_theta,
+            "partial_rotary_factor": self.rotary_dim / self.head_dim,
+        }
+        if rope_scaling:
+            rope_parameters.update(rope_scaling)
         self.rotary_emb = get_rope(
             self.head_dim,
-            rotary_dim=self.rotary_dim,
             max_position=max_position_embeddings,
-            base=rope_theta,
-            rope_scaling=rope_scaling,
+            rope_parameters=rope_parameters,
             is_neox_style=is_neox_style,
         )
 
@@ -564,6 +568,9 @@ class YasaCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         return YasaModel(vllm_config=vllm_config, prefix=prefix)
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
+        return self.model.get_input_embeddings(input_ids)
+
+    def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.model.get_input_embeddings(input_ids)
 
     def forward(

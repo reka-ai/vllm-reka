@@ -14,11 +14,21 @@ def register():
     AutoConfig.register("yasa_mmlm_model", YasaMMLMConfig)
     AutoConfig.register("yasa_edge_mmlm_model", YasaMMLMV2MMLMConfig)
 
-    # Register tokenizer mode with vLLM
+    # Register tokenizer with both vLLM and HuggingFace AutoTokenizer
     # User passes --tokenizer-mode yasa to activate
     TokenizerRegistry.register(
         "yasa", "vllm_reka.tokenizer", "YasaTokenizer"
     )
+    from transformers import AutoTokenizer
+    from .tokenizer import YasaTokenizer
+    AutoTokenizer.register(YasaConfig, slow_tokenizer_class=YasaTokenizer)
+    AutoTokenizer.register(YasaMMLMConfig, slow_tokenizer_class=YasaTokenizer)
+    AutoTokenizer.register(YasaMMLMV2MMLMConfig, slow_tokenizer_class=YasaTokenizer)
+
+    # Register renderer for the yasa tokenizer mode
+    # Reuses the HfRenderer since YasaTokenizer is a PreTrainedTokenizer
+    from vllm.renderers.registry import RENDERER_REGISTRY
+    RENDERER_REGISTRY.register("yasa", "vllm.renderers.hf", "HfRenderer")
 
     # Register model architectures with vLLM (lazy import via string)
     if "YasaCausalLM" not in ModelRegistry.get_supported_archs():

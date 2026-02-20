@@ -18,14 +18,31 @@ from vllm.multimodal.parse import MultiModalDataItems, MultiModalDataParser
 from vllm.multimodal.processing import (BaseMultiModalProcessor,
                                         BaseProcessingInfo, PromptReplacement,
                                         PromptUpdate, PromptUpdateDetails)
-from vllm.multimodal.profiling import BaseDummyInputsBuilder, ProcessorInputs
-from vllm.multimodal.video import DEFAULT_VIDEO_NUM_FRAMES
+from vllm.multimodal.processing import BaseDummyInputsBuilder, ProcessorInputs
 from vllm.sequence import IntermediateTensors
 
 from vllm.model_executor.models.interfaces import SupportsMultiModal, SupportsPP
 from vllm.model_executor.models.siglip import SiglipVisionModel
 from vllm.model_executor.models.utils import (AutoWeightsLoader, init_vllm_registered_model,
-                    maybe_prefix, merge_multimodal_embeddings)
+                    maybe_prefix, _merge_multimodal_embeddings)
+
+
+def merge_multimodal_embeddings(
+    input_ids: torch.Tensor,
+    inputs_embeds: torch.Tensor,
+    multimodal_embeddings,
+    placeholder_token_id,
+) -> torch.Tensor:
+    if isinstance(placeholder_token_id, (list, tuple)):
+        is_multimodal = torch.isin(
+            input_ids,
+            torch.tensor(placeholder_token_id, device=input_ids.device),
+        )
+    else:
+        is_multimodal = (input_ids == placeholder_token_id)
+    return _merge_multimodal_embeddings(
+        inputs_embeds, multimodal_embeddings, is_multimodal)
+from vllm_reka.multimodal_utils import DEFAULT_VIDEO_NUM_FRAMES
 from vllm_reka.multimodal_utils import ImageProcessor, VideoProcessor
 
 _IMAGE_PLACEHOLDER_TOKEN_ID = 100278
@@ -84,6 +101,14 @@ class YasaMMLMForConditionalGeneration(nn.Module, SupportsMultiModal,
                                        SupportsPP):
     """YASA MMLM model for conditional generation with multimodal support."""
 
+    @classmethod
+    def get_placeholder_str(cls, modality: str, i: int) -> str | None:
+        if modality.startswith("image"):
+            return "<REKA_IMG_TOKEN>"
+        if modality.startswith("video"):
+            return "<REKA_IMG_TOKEN>"
+        return None
+
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
         super().__init__()
         config = vllm_config.model_config.hf_config
@@ -105,11 +130,12 @@ class YasaMMLMForConditionalGeneration(nn.Module, SupportsMultiModal,
                 config.text_config.hidden_size,
             ),
         )
-        self.language_model = init_vllm_registered_model(
-            vllm_config=vllm_config,
-            hf_config=config.text_config,
-            prefix=maybe_prefix(prefix, "language_model"),
-        )
+        with self._mark_language_model(vllm_config):
+            self.language_model = init_vllm_registered_model(
+                vllm_config=vllm_config,
+                hf_config=config.text_config,
+                prefix=maybe_prefix(prefix, "language_model"),
+            )
 
     def _validate_pixel_values(self, data: torch.Tensor) -> torch.Tensor:
         h = w = self.config.vision_config.image_size
@@ -325,7 +351,7 @@ class YasaMMLMForConditionalGeneration(nn.Module, SupportsMultiModal,
             torch.split(vision_embeddings, tokens_per_video, dim=0))
         return embeddings_list
 
-    def get_multimodal_embeddings(self, **kwargs) -> list[torch.Tensor]:
+    def embed_multimodal(self, **kwargs) -> list[torch.Tensor]:
         """Get embeddings for all multimodal inputs.
         Both video frames and image patches are processed through the same
         vision encoder pipeline.
@@ -489,7 +515,7 @@ class YasaMMLMForConditionalGeneration(nn.Module, SupportsMultiModal,
         # NOTE: In v1, inputs_embeds is always generated at model runner, this
         # condition is for v0 compatibility.
         elif inputs_embeds is None:
-            vision_embeddings = self.get_multimodal_embeddings(**kwargs)
+            vision_embeddings = self.embed_multimodal(**kwargs)
             inputs_embeds = self.get_input_embeddings(input_ids,
                                                       vision_embeddings)
             input_ids = None
@@ -625,6 +651,7 @@ class YasaDummyInputsBuilder(BaseDummyInputsBuilder[YasaProcessingInfo]):
         self,
         seq_len: int,
         mm_counts: Mapping[str, int],
+        mm_options=None,
     ) -> ProcessorInputs:
         num_images = mm_counts.get("image", 0)
         num_videos = mm_counts.get("video", 0)

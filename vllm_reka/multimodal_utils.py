@@ -13,8 +13,9 @@ import torch
 from PIL import Image
 from transformers import SiglipImageProcessor
 
-from vllm.multimodal.video import (DEFAULT_VIDEO_NUM_FRAMES,
-                                   VIDEO_LOADER_REGISTRY, VideoLoader)
+from vllm.multimodal.video import VIDEO_LOADER_REGISTRY, VideoLoader
+
+DEFAULT_VIDEO_NUM_FRAMES = 32
 
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
 

@@ -799,3 +799,6 @@ class YasaTokenizer(PreTrainedTokenizer):
         self.eos_token = "<|endoftext|>"
         return super().save_pretrained(save_directory, legacy_format,
                                        filename_prefix, push_to_hub, **kwargs)
+
+
+Yasa2Tokenizer = YasaTokenizer
