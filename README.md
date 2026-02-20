@@ -102,8 +102,11 @@ vllm_reka/
 This plugin contains several monkey patches because we originally developed our model on an older version of vLLM. In the long-term, we plan to open upstream PRs on the vLLM repo so that we can remove them.
 
 Monkey patches were implemented for:
-- Whitespace stripping (`_patch_detokenizer_whitespace_stripping`)
+- Whitespace stripping introduced by our tiktoken-based tokenizer (`_patch_detokenizer_whitespace_stripping`)
+- Add support for `YasaTokenizer` to construct `TokenizerInfo` with byte keys instead of just strings (`_patch_xgrammar_backend`)
 
+## Versioning
+This plugin targets the latest version of vLLM. Since vLLM changes move so fast, we will aim to update the plugin with the correct APIs as soon as it breaks with a newer vLLM version. If someone is stuck on an older vLLM version, they can simply install an older plugin release.
 
 ## Dependencies
 
