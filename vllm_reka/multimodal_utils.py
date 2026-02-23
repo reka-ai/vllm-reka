@@ -129,7 +129,7 @@ class YasaVideoBackend(VideoLoader):
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             if total_frames <= 0 or fps <= 0:
                 raise RuntimeError("Invalid video metadata")
-            sampling = kwargs.get("sampling", "chunk")
+            sampling = kwargs.get("sampling", "uniform")
             frame_indices = cls._sample_indices(num_frames, total_frames,
                                                 sampling=sampling)
             frames = np.empty((len(frame_indices), height, width, 3),
