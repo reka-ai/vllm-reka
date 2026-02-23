@@ -150,7 +150,7 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
         if modality.startswith("image"):
             return "<REKA_IMG_TOKEN>"
         if modality.startswith("video"):
-            return "<REKA_IMG_TOKEN>"
+            return "<video></video>"
         return None
 
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
