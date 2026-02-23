@@ -60,6 +60,35 @@ class YasaVideoBackend(VideoLoader):
     PyAV integration planned for more efficient long video handling.
     """
 
+    @staticmethod
+    def _sample_indices(num_frames: int, total_frames: int,
+                        sampling: str) -> np.ndarray:
+        if num_frames == -1 or total_frames <= num_frames:
+            return np.arange(total_frames, dtype=int)
+
+        if sampling == "uniform":
+            return np.linspace(0, total_frames - 1, num_frames, dtype=int)
+
+        if sampling == "random":
+            return np.sort(
+                np.random.choice(np.arange(total_frames),
+                                 num_frames,
+                                 replace=False)).astype(int)
+
+        if sampling == "chunk":
+            # Split timeline into chunks and pick one random frame per chunk.
+            chunk_size = total_frames // num_frames
+            extra_frames = total_frames % num_frames
+            sampled_frames = []
+            for i in range(num_frames):
+                start = i * chunk_size + min(i, extra_frames)
+                end = start + chunk_size + (1 if i < extra_frames else 0)
+                sampled_frames.append(int(np.random.randint(start, end)))
+            return np.array(sampled_frames, dtype=int)
+
+        raise ValueError(f"Unsupported video sampling mode: {sampling}. "
+                         "Expected one of: chunk, uniform, random.")
+
     def get_cv2_video_api(self):
         import cv2.videoio_registry as vr
 
@@ -100,13 +129,9 @@ class YasaVideoBackend(VideoLoader):
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             if total_frames <= 0 or fps <= 0:
                 raise RuntimeError("Invalid video metadata")
-            if num_frames == -1 or total_frames <= num_frames:
-                frame_indices = np.arange(total_frames)
-            else:
-                frame_indices = np.linspace(0,
-                                            total_frames - 1,
-                                            num_frames,
-                                            dtype=int)
+            sampling = kwargs.get("sampling", "chunk")
+            frame_indices = cls._sample_indices(num_frames, total_frames,
+                                                sampling=sampling)
             frames = np.empty((len(frame_indices), height, width, 3),
                               dtype=np.uint8)
             timestamps = [idx / fps for idx in frame_indices]
@@ -138,7 +163,8 @@ class YasaVideoBackend(VideoLoader):
                 "duration": total_frames / fps,
                 "frame_indices": frame_indices.tolist(),
                 "timestamps": timestamps,
-                "backend": "opencv-tempfile-uniform",
+                "backend": f"opencv-tempfile-{sampling}",
+                "sampling": sampling,
             }
             return frames, metadata
         finally:
