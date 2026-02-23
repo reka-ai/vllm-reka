@@ -40,49 +40,51 @@ Then install this plugin:
 pip install -e .
 ```
 
-### Serving a text-only model
+### Serving models
+
+The serve command is the same for text-only and multimodal checkpoints:
 
 ```bash
 vllm serve <model-path> --tokenizer-mode yasa
 ```
 
-### Serving a multimodal model
-
-```bash
-vllm serve <model-path> \
-  --tokenizer-mode yasa
-```
+- Text-only: use a `YasaCausalLM` checkpoint.
+- Multimodal: use a `YasaMMLMForConditionalGeneration` or `Yasa2ForConditionalGeneration` checkpoint.
 
 ### Querying the server
 
 Once running, the server exposes an OpenAI-compatible API at `http://localhost:8000`.
 
-**Text completion:**
+Use the same endpoint for both text-only and multimodal requests:
 
 ```bash
 curl http://localhost:8000/v1/chat/completions \
   -H "Content-Type: application/json" \
-  -d '{
-    "model": "<model-path>",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }'
+  -d '<payload-json>'
 ```
 
-**Multimodal (image):**
+**Text-only payload (`content` is a string):**
 
-```bash
-curl http://localhost:8000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "<model-path>",
-    "messages": [{
-      "role": "user",
-      "content": [
-        {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}},
-        {"type": "text", "text": "Describe this image."}
-      ]
-    }]
-  }'
+```json
+{
+  "model": "<model-path>",
+  "messages": [{"role": "user", "content": "Hello!"}]
+}
+```
+
+**Multimodal payload (`content` is an array of typed blocks):**
+
+```json
+{
+  "model": "<model-path>",
+  "messages": [{
+    "role": "user",
+    "content": [
+      {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}},
+      {"type": "text", "text": "Describe this image."}
+    ]
+  }]
+}
 ```
 
 ## Project Structure

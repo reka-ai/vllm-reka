@@ -150,7 +150,7 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
         if modality.startswith("image"):
             return "<REKA_IMG_TOKEN>"
         if modality.startswith("video"):
-            return "<REKA_IMG_TOKEN>"
+            return "<video></video>"
         return None
 
     def __init__(self, *, vllm_config: VllmConfig, prefix: str = ""):
@@ -808,7 +808,7 @@ class YasaMMLMV2DummyInputsBuilder(
         num_images = mm_counts.get("image", 0)
         num_videos = mm_counts.get("video", 0)
         parts = ["<REKA_IMG_TOKEN>"] * num_images
-        parts.extend(["<REKA_IMG_TOKEN>"] * num_videos)
+        parts.extend(["<video></video>"] * num_videos)
         return " ".join(parts)
 
     def get_dummy_mm_data(
@@ -846,7 +846,7 @@ class YasaMMLMV2DummyInputsBuilder(
         if num_videos > 0:
             dummy_video = self.info.get_max_yasa_dummy_video()
             mm_data["video"] = [dummy_video] * num_videos
-            parts.extend(["<REKA_IMG_TOKEN>"] * num_videos)
+            parts.extend(["<video></video>"] * num_videos)
 
         prompt_text = " ".join(parts)
         return ProcessorInputs(
@@ -1024,7 +1024,7 @@ class YasaMMLMV2MultiModalProcessor(
                     video_frame_counts.append(default_frames)
 
             def _get_video_target(_: int):
-                return [_IMAGE_PLACEHOLDER_TOKEN_ID]
+                return [_START_VIDEO_TOKEN, _END_VIDEO_TOKEN]
 
             def _get_video_replacement(item_idx: int):
                 num_frames = video_frame_counts[item_idx]
