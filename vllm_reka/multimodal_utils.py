@@ -310,11 +310,9 @@ class ImageProcessor:
 
     def get_max_yasa_image_tokens(self) -> int:
         if not USE_IMAGE_PATCHING:
-            result = self.config.num_query_tokens
-            return result
-        result = self.config.num_query_tokens * (
-            self.config.vision_max_tiles_num + 1)
-        return result
+            return self.config.num_query_tokens + 2  # +2 for start/end tokens
+        return self.config.num_query_tokens * (
+            self.config.vision_max_tiles_num + 1) + 2  # +2 for start/end tokens
 
     def get_num_image_tokens(self, image: Image.Image) -> int:
 
