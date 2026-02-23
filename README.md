@@ -51,6 +51,14 @@ vllm serve <model-path> --tokenizer-mode yasa
 - Text-only: use a `YasaCausalLM` checkpoint.
 - Multimodal: use a `YasaMMLMForConditionalGeneration` or `Yasa2ForConditionalGeneration` checkpoint.
 
+### Configuration
+
+To modify the video sampling style, you can use standard [vllm engine arguments](https://docs.vllm.ai/en/stable/configuration/engine_args/) like this:
+
+```bash
+vllm serve <model> --media-io-kwargs '{"video": {"sampling": "chunk"}}'
+```
+
 ### Querying the server
 
 Once running, the server exposes an OpenAI-compatible API at `http://localhost:8000`.
