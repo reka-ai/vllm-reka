@@ -667,6 +667,7 @@ class YasaMMLMV2ImageProcessor:
                     self.patch_size,
                     False,
                 )
+                # Note: this re-ordering only applies for Reka's edge v2 model
                 # Reorder to [patches..., source] to match HF ordering - only for edge v2 model
                 # See https://github.com/reka-ai/vllm/blob/f31c11ee885dc92dc29216b5c91de05fb294c122/vllm/model_executor/models/yasa_mmlm_v2.py#L693
                 if len(image_tiles) > 1:
