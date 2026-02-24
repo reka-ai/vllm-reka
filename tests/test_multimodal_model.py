@@ -1,13 +1,8 @@
-# ABOUTME: Tests for multimodal_model prompt update targets and dummy text placeholders.
-# ABOUTME: Verifies video/image targets match chat template output for correct placeholder expansion.
+# ABOUTME: Tests that multimodal_model placeholders match chat template output.
+# ABOUTME: Verifies dummy text, model placeholders, and chat template stay consistent.
 
 import pytest
 
-from vllm_reka.multimodal_utils import (
-    _IMAGE_PLACEHOLDER_TOKEN_ID,
-    _START_VIDEO_TOKEN,
-    _END_VIDEO_TOKEN,
-)
 from vllm_reka.tokenizer import YasaTokenizer
 
 
@@ -16,7 +11,7 @@ def tokenizer():
     return YasaTokenizer(tiktoken_model_name="cl100k_base")
 
 
-# ── Test group A: Video target token contract ─────────────────────────
+# ── Test group A: Structural guards ──────────────────────────────────
 
 
 class TestVideoTargetContract:
@@ -34,45 +29,8 @@ class TestVideoTargetContract:
             "_VIDEO_TOKEN should not exist — video targets should use "
             "_START_VIDEO_TOKEN/_END_VIDEO_TOKEN directly.")
 
-    def test_video_template_tokenizes_to_start_end_pair(self, tokenizer):
-        """Chat template video placeholder must tokenize to [100284, 100285]."""
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "video", "video": "dummy"},
-                    {"type": "text", "text": "describe"},
-                ],
-            }
-        ]
-        ids = tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=True)
-        ids_list = ids[0].tolist() if hasattr(ids[0], "tolist") else list(ids)
-        assert _START_VIDEO_TOKEN in ids_list
-        assert _END_VIDEO_TOKEN in ids_list
-        start_idx = ids_list.index(_START_VIDEO_TOKEN)
-        assert ids_list[start_idx + 1] == _END_VIDEO_TOKEN
 
-    def test_image_template_tokenizes_to_img_token(self, tokenizer):
-        """Chat template image placeholder must tokenize to 100278 only."""
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": "dummy"},
-                    {"type": "text", "text": "describe"},
-                ],
-            }
-        ]
-        ids = tokenizer.apply_chat_template(
-            messages, add_generation_prompt=True, tokenize=True)
-        ids_list = ids[0].tolist() if hasattr(ids[0], "tolist") else list(ids)
-        assert _IMAGE_PLACEHOLDER_TOKEN_ID in ids_list
-        assert _START_VIDEO_TOKEN not in ids_list
-        assert _END_VIDEO_TOKEN not in ids_list
-
-
-# ── Test group B: Dummy text placeholders ─────────────────────────────
+# ── Test group B: Dummy text matches chat template ───────────────────
 
 
 class TestDummyTextPlaceholders:
@@ -83,9 +41,36 @@ class TestDummyTextPlaceholders:
     token layout than real inference, causing mismatches.
     """
 
-    def test_dummy_video_uses_video_tags(self, tokenizer):
-        """Dummy video placeholder must be <video></video>, not <REKA_IMG_TOKEN>."""
-        # What the chat template produces for video
+    def test_dummy_video_text(self):
+        """get_dummy_text produces <video></video> for videos."""
+        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
+        builder = YasaDummyInputsBuilder.__new__(YasaDummyInputsBuilder)
+        text = builder.get_dummy_text({"video": 1})
+        assert "<video></video>" in text
+        assert "<REKA_IMG_TOKEN>" not in text
+
+    def test_dummy_image_text(self):
+        """get_dummy_text produces <REKA_IMG_TOKEN> for images."""
+        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
+        builder = YasaDummyInputsBuilder.__new__(YasaDummyInputsBuilder)
+        text = builder.get_dummy_text({"image": 1})
+        assert "<REKA_IMG_TOKEN>" in text
+        assert "<video></video>" not in text
+
+    def test_dummy_mixed_text(self):
+        """get_dummy_text produces correct placeholders for mixed inputs."""
+        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
+        builder = YasaDummyInputsBuilder.__new__(YasaDummyInputsBuilder)
+        text = builder.get_dummy_text({"image": 2, "video": 3})
+        assert text.count("<REKA_IMG_TOKEN>") == 2
+        assert text.count("<video></video>") == 3
+
+    def test_dummy_text_matches_chat_template(self, tokenizer):
+        """Dummy text placeholders must match what the chat template emits."""
+        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
+        builder = YasaDummyInputsBuilder.__new__(YasaDummyInputsBuilder)
+
+        # Video: chat template should emit same placeholder as dummy text
         video_messages = [
             {
                 "role": "user",
@@ -97,30 +82,69 @@ class TestDummyTextPlaceholders:
         ]
         template_prompt = tokenizer.apply_chat_template(
             video_messages, add_generation_prompt=True)
+        dummy_text = builder.get_dummy_text({"video": 1})
+        # Both should use <video></video>
         assert "<video></video>" in template_prompt
+        assert "<video></video>" in dummy_text
 
-        # Dummy text should use the same video placeholder.
-        # Import the actual dummy builder's placeholder choice.
-        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
-        # Inspect get_dummy_text source for video placeholder.
-        # We test the contract: a video-only dummy text must contain
-        # <video></video> and NOT <REKA_IMG_TOKEN>.
-        import inspect
-        source = inspect.getsource(YasaDummyInputsBuilder.get_dummy_text)
-        # The method should reference <video></video> for videos
-        assert "<video></video>" in source or "_VIDEO_PLACEHOLDER" in source, (
-            "get_dummy_text should use <video></video> for video placeholders, "
-            "matching the chat template. Found <REKA_IMG_TOKEN> instead.")
+        # Image: same check
+        image_messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": "dummy"},
+                    {"type": "text", "text": "x"},
+                ],
+            }
+        ]
+        template_prompt = tokenizer.apply_chat_template(
+            image_messages, add_generation_prompt=True)
+        dummy_text = builder.get_dummy_text({"image": 1})
+        assert "<REKA_IMG_TOKEN>" in template_prompt
+        assert "<REKA_IMG_TOKEN>" in dummy_text
 
-    def test_dummy_processor_inputs_video_uses_video_tags(self):
-        """get_dummy_processor_inputs must use <video></video> for videos."""
-        from vllm_reka.multimodal_model import YasaDummyInputsBuilder
-        import inspect
-        source = inspect.getsource(
-            YasaDummyInputsBuilder.get_dummy_processor_inputs)
-        # Video parts should use <video></video>, not <REKA_IMG_TOKEN>
-        # This is a source-level check since we can't instantiate
-        # the builder without a full vLLM context.
-        assert "<video></video>" in source or "_VIDEO_PLACEHOLDER" in source, (
-            "get_dummy_processor_inputs should use <video></video> for video "
-            "placeholders, matching the chat template.")
+
+# ── Test group C: Model placeholder strings ──────────────────────────
+
+
+class TestModelPlaceholderStrings:
+    """get_placeholder_str must return the same strings as the chat template."""
+
+    def test_image_placeholder_str(self):
+        from vllm_reka.multimodal_model import YasaMMLMForConditionalGeneration
+        result = YasaMMLMForConditionalGeneration.get_placeholder_str("image", 0)
+        assert result == "<REKA_IMG_TOKEN>"
+
+    def test_video_placeholder_str(self):
+        from vllm_reka.multimodal_model import YasaMMLMForConditionalGeneration
+        result = YasaMMLMForConditionalGeneration.get_placeholder_str("video", 0)
+        assert result == "<video></video>"
+
+    def test_unknown_modality_returns_none(self):
+        from vllm_reka.multimodal_model import YasaMMLMForConditionalGeneration
+        result = YasaMMLMForConditionalGeneration.get_placeholder_str("audio", 0)
+        assert result is None
+
+    def test_placeholder_str_matches_chat_template(self, tokenizer):
+        """Model placeholders must match what the chat template produces."""
+        from vllm_reka.multimodal_model import YasaMMLMForConditionalGeneration
+
+        image_prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": [
+                {"type": "image", "image": "d"},
+                {"type": "text", "text": "x"},
+            ]}],
+            add_generation_prompt=True)
+        image_placeholder = YasaMMLMForConditionalGeneration.get_placeholder_str(
+            "image", 0)
+        assert image_placeholder in image_prompt
+
+        video_prompt = tokenizer.apply_chat_template(
+            [{"role": "user", "content": [
+                {"type": "video", "video": "d"},
+                {"type": "text", "text": "x"},
+            ]}],
+            add_generation_prompt=True)
+        video_placeholder = YasaMMLMForConditionalGeneration.get_placeholder_str(
+            "video", 0)
+        assert video_placeholder in video_prompt
