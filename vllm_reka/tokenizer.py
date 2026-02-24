@@ -566,23 +566,27 @@ class YasaTokenizer(PreTrainedTokenizer):
         self.allowed_special_tokens = set(special_tokens.keys())
         self.clean_up_tokenization_spaces = False
 
-        chat_template_value: Optional[str] = None
-        chat_template_override = kwargs.get("chat_template")
-        if isinstance(chat_template_override, str) and chat_template_override:
-            if os.path.isfile(chat_template_override):
-                with open(chat_template_override, encoding="utf-8") as handle:
-                    chat_template_value = handle.read()
-            else:
-                chat_template_value = chat_template_override
-        else:
-            model_path = kwargs.get("name_or_path") or kwargs.get("_name_or_path")
-            if isinstance(model_path, str):
-                chat_template_path = os.path.join(model_path, "chat_template.jinja")
-                if os.path.isfile(chat_template_path):
-                    with open(chat_template_path, encoding="utf-8") as handle:
-                        chat_template_value = handle.read()
+        # Note: ignore chat_template.jinja files shipped with model checkpoints,
+        # as they may expand image tokens differently than expected.
 
-        self.chat_template = chat_template_value or DEFAULT_CHAT_TEMPLATE
+        # chat_template_value: Optional[str] = None
+        # chat_template_override = kwargs.get("chat_template")
+        # if isinstance(chat_template_override, str) and chat_template_override:
+        #     if os.path.isfile(chat_template_override):
+        #         with open(chat_template_override, encoding="utf-8") as handle:
+        #             chat_template_value = handle.read()
+        #     else:
+        #         chat_template_value = chat_template_override
+        # else:
+        #     model_path = kwargs.get("name_or_path") or kwargs.get("_name_or_path")
+        #     if isinstance(model_path, str):
+        #         chat_template_path = os.path.join(model_path, "chat_template.jinja")
+        #         if os.path.isfile(chat_template_path):
+        #             with open(chat_template_path, encoding="utf-8") as handle:
+        #                 chat_template_value = handle.read()
+
+        # self.chat_template = chat_template_value or DEFAULT_CHAT_TEMPLATE
+        self.chat_template = DEFAULT_CHAT_TEMPLATE
 
     @property
     def max_token_id(self) -> int:
