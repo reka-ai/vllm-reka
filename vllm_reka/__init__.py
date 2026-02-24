@@ -17,7 +17,7 @@ def _patch_detokenizer_whitespace_stripping():
 
     _original = BaseIncrementalDetokenizer.get_next_output_text
 
-    def _get_next_output_text(self, finished, delta):
+    def _get_next_output_text(self, finished: bool, delta: bool) -> str:
         text = _original(self, finished, delta)
         # Only strip for tokenizers that opt in (e.g., YasaTokenizer)
         if not getattr(getattr(self, 'tokenizer', None),
@@ -48,7 +48,7 @@ def _patch_xgrammar_backend():
 
     _original_post_init = XgrammarBackend.__post_init__
 
-    def _patched_post_init(self):
+    def _patched_post_init(self) -> None:
         from vllm_reka.tokenizer import YasaTokenizer
 
         if not isinstance(self.tokenizer, YasaTokenizer):

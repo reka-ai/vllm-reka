@@ -736,7 +736,11 @@ class YasaMultiModalProcessor(BaseMultiModalProcessor[YasaProcessingInfo]):
     ) -> bool:
         return False
 
-    def _get_mm_fields_config(self, hf_inputs, hf_processor_mm_kwargs):
+    def _get_mm_fields_config(
+        self,
+        hf_inputs: BatchFeature,
+        hf_processor_mm_kwargs: Mapping[str, object],
+    ) -> Mapping[str, MultiModalFieldConfig]:
         cfg = {}
         # Image fields - route to "image" modality
         image_counts = hf_inputs.get("patches_per_image")

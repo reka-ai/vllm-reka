@@ -723,8 +723,8 @@ class YasaTokenizer(PreTrainedTokenizer):
         )
 
     def create_token_type_ids_from_sequences(self,
-                                             token_ids_0,
-                                             token_ids_1=None) -> list[int]:
+                                             token_ids_0: list[int],
+                                             token_ids_1: list[int] | None = None) -> list[int]:
         return [0] * len(token_ids_0)
 
     @property

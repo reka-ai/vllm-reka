@@ -14,14 +14,16 @@ from PIL import Image
 from transformers import SiglipImageProcessor
 
 from vllm.model_executor.models.utils import _merge_multimodal_embeddings
+from vllm.multimodal.inputs import NestedTensors
+from vllm.multimodal.processing import InputProcessingContext
 from vllm.multimodal.video import VIDEO_LOADER_REGISTRY, VideoLoader
 
 
 def merge_multimodal_embeddings(
     input_ids: torch.Tensor,
     inputs_embeds: torch.Tensor,
-    multimodal_embeddings,
-    placeholder_token_id,
+    multimodal_embeddings: NestedTensors,
+    placeholder_token_id: int | list[int] | tuple[int, ...],
 ) -> torch.Tensor:
     if isinstance(placeholder_token_id, (list, tuple)):
         is_multimodal = torch.isin(
@@ -45,7 +47,7 @@ _END_VIDEO_TOKEN = 100285
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
 
 
-def _get_default_video_num_frames(ctx) -> int:
+def _get_default_video_num_frames(ctx: InputProcessingContext) -> int:
     """Default video frame count from --media-io-kwargs, or vLLM default."""
     mm_config = ctx.get_mm_config()
     return (mm_config.media_io_kwargs.get("video")

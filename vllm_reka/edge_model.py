@@ -73,7 +73,7 @@ YasaMMLMV2VideoInputs = Union[YasaMMLMV2VideoPixelInputs,
                               YasaMMLMV2VideoEmbeddingInputs]
 
 
-def get_2d_sincos_pos_embed(embed_dim: int, image_size) -> torch.Tensor:
+def get_2d_sincos_pos_embed(embed_dim: int, image_size: int | tuple[int, int]) -> torch.Tensor:
     """
     Generate 2D sinusoidal positional embeddings using torch (more efficient).
 
@@ -931,7 +931,11 @@ class YasaMMLMV2MultiModalProcessor(
     ) -> bool:
         return False
 
-    def _get_mm_fields_config(self, hf_inputs, hf_processor_mm_kwargs):
+    def _get_mm_fields_config(
+        self,
+        hf_inputs: BatchFeature,
+        hf_processor_mm_kwargs: Mapping[str, object],
+    ) -> Mapping[str, MultiModalFieldConfig]:
         cfg = {}
         # Image fields
         num_images = hf_inputs.get("num_images")

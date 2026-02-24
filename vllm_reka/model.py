@@ -63,7 +63,7 @@ class YasaMLP(nn.Module):
                              "Only silu is supported for now.")
         self.act_fn = SiluAndMul()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x, _ = self.gate_up_proj(x)
         x = self.act_fn(x)
         x, _ = self.down_proj(x)
@@ -564,7 +564,7 @@ class YasaCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         self.make_empty_intermediate_tensors = (
             self.model.make_empty_intermediate_tensors)
 
-    def _init_model(self, vllm_config: VllmConfig, prefix: str = ""):
+    def _init_model(self, vllm_config: VllmConfig, prefix: str = "") -> YasaModel:
         return YasaModel(vllm_config=vllm_config, prefix=prefix)
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
@@ -591,7 +591,7 @@ class YasaCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         logits = self.logits_processor(self.lm_head, hidden_states)
         return logits
 
-    def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]):
+    def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
         # Filter out causal mask weights
         # (not needed - fused in efficient inference)
         # Also handle typo variant "casual_mask" from some checkpoints

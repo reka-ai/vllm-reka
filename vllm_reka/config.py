@@ -1,7 +1,7 @@
 # ABOUTME: HuggingFace PretrainedConfig subclasses for Reka models.
 # ABOUTME: Defines YasaConfig (text), YasaMMLMConfig (SigLIP), YasaMMLMV2MMLMConfig (ConvNextV2).
 import copy
-from typing import Optional
+from typing import Any, Optional
 
 from transformers import ConvNextV2Config, PretrainedConfig, SiglipVisionConfig
 
@@ -156,7 +156,7 @@ class YasaMMLMConfig(PretrainedConfig):
         self.is_multimodal_model = True
         self.architectures = ["YasaMMLMForConditionalGeneration"]
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes this instance to a Python dictionary.
 
@@ -267,7 +267,7 @@ class YasaMMLMV2MMLMConfig(PretrainedConfig):
         self.is_multimodal_model = True
         self.architectures = ["YasaMMLMV2ForConditionalGeneration"]
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes this instance to a Python dictionary.
 
