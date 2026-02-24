@@ -437,7 +437,7 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
             vision_embeddings = self._process_image_input(video_input)
         metadata = video_input.get("metadata", {})
         frames_per_video = metadata.get("frames_per_video", [])
-        tokens_per_frame = getattr(self.config, "num_query_tokens", 49)
+        tokens_per_frame = getattr(self.config, "num_query_tokens", 64)
         if not frames_per_video:
             raise ValueError("Missing `frames_per_video` in video metadata.")
         tokens_per_video = [f * tokens_per_frame for f in frames_per_video]
@@ -636,9 +636,23 @@ class YasaMMLMV2ImageProcessor:
             image_mean=[0.485, 0.456, 0.406],  # ImageNet mean
             image_std=[0.229, 0.224, 0.225],  # ImageNet std
         )
-        self.grid_points = [(2, 2), (1, 2), (2, 1), (1, 3), (3, 1)]
+        self.grid_points = [
+            (2, 2),
+            (1, 2),
+            (2, 1),
+            (1, 3),
+            (3, 1),
+            (1, 4),
+            (4, 1),
+        ]
         self.image_size = image_size
         self.patch_size = self.config.vision_config.patch_size
+        self.max_tiles_num = int(
+            getattr(
+                self.config,
+                "vision_max_tiles_num",
+                getattr(self.config, "max_tiles_num", self.MAX_TILES),
+            ))
 
     def preprocess(self, images: list[Image.Image]) -> dict[str, torch.Tensor]:
         """Preprocess images for ConvNextV2."""
@@ -648,13 +662,13 @@ class YasaMMLMV2ImageProcessor:
             for image in images:
                 image_tiles = ImageProcessor._preprocess_anyres_image_uhd(
                     image,
-                    self.MAX_TILES,
+                    self.max_tiles_num,
                     self.image_size,
                     self.patch_size,
                     False,
                 )
-                # Reorder to [patches..., source] to match HF ordering.
-                # See: ../../../reka-code/vllm/vllm/model_executor/models/yasa_mmlm_v2.py:693
+                # Reorder to [patches..., source] to match HF ordering - only for edge v2 model
+                # See https://github.com/reka-ai/vllm/blob/f31c11ee885dc92dc29216b5c91de05fb294c122/vllm/model_executor/models/yasa_mmlm_v2.py#L693
                 if len(image_tiles) > 1:
                     image_tiles = list(image_tiles[1:]) + [image_tiles[0]]
                 tiles_per_image.append(len(image_tiles))
@@ -672,7 +686,10 @@ class YasaMMLMV2ImageProcessor:
 
     def get_num_image_tokens(self) -> int:
         """Get number of tokens per image."""
-        return self.config.num_query_tokens
+        if not USE_IMAGE_PATCHING:
+            return int(self.config.num_query_tokens)
+        # UHD preprocessing returns patches + source image.
+        return int((self.max_tiles_num + 1) * self.config.num_query_tokens)
 
     def get_max_dummy_image(self) -> Image.Image:
         """Create dummy image for profiling."""
@@ -776,8 +793,15 @@ class YasaMMLMV2ProcessingInfo(BaseProcessingInfo):
     def get_max_image_tokens(self) -> int:
         config = self.get_hf_config()
         tokens_per_tile = getattr(config, "num_query_tokens", 64)
-        max_tiles = (YasaMMLMV2ImageProcessor.MAX_TILES
-                     if USE_IMAGE_PATCHING else 1)
+        max_tiles_num = int(
+            getattr(
+                config,
+                "vision_max_tiles_num",
+                getattr(config, "max_tiles_num",
+                        YasaMMLMV2ImageProcessor.MAX_TILES),
+            ))
+        # UHD tiling produces patches + source image.
+        max_tiles = (max_tiles_num + 1) if USE_IMAGE_PATCHING else 1
         return (tokens_per_tile * max_tiles) + 2  # +2 for start/end tokens
 
     def get_max_yasa_num_video_tokens(self,

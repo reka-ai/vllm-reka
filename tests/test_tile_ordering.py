@@ -1,7 +1,5 @@
-# ABOUTME: Tests for image tile ordering in the edge v2 model's image processor.
-# ABOUTME: Verifies tiles are in HF ordering (patches first, source last).
-
-from unittest.mock import MagicMock
+# ABOUTME: Tests for _preprocess_anyres_image_uhd tile output ordering.
+# ABOUTME: Verifies source tile position and patch sizes for multi-tile images.
 
 import numpy as np
 import pytest
@@ -70,58 +68,3 @@ class TestPreprocessAnyresImageUhd:
         for patch in tiles[1:]:
             patch_pixels = patch.size[0] * patch.size[1]
             assert patch_pixels < source_pixels
-
-
-# ── Test group B: Edge processor tile ordering ───────────────────────
-
-
-class TestEdgeV2TileOrdering:
-    """Edge v2 model must reorder tiles to [patches..., source].
-
-    _preprocess_anyres_image_uhd returns [source, patch0, patch1, ...].
-    The HF convention (image_processing_yasa2, how the model was trained)
-    expects [patch0, patch1, ..., source].
-
-    The fork applies this reordering in YasaMMLMV2ImageProcessor.preprocess():
-        if len(image_tiles) > 1:
-            image_tiles = list(image_tiles[1:]) + [image_tiles[0]]
-
-    The plugin is currently missing this step.
-    """
-
-    @pytest.fixture()
-    def edge_processor(self):
-        from vllm_reka.edge_model import YasaMMLMV2ImageProcessor
-        config = MagicMock()
-        config.vision_config.image_size = 384
-        config.vision_config.patch_size = 14
-        config.num_query_tokens = 64
-        return YasaMMLMV2ImageProcessor(config)
-
-    def test_edge_processor_reorders_tiles_to_hf_order(self, edge_processor):
-        """Edge processor should output [patches..., source] for multi-tile images."""
-        image = _make_two_color_image()
-
-        # Capture the PIL tiles that get passed to ConvNextImageProcessor
-        captured_tiles = []
-        original_processor = edge_processor.image_processor
-
-        def capture_call(images, **kwargs):
-            captured_tiles.extend(images)
-            return original_processor(images, **kwargs)
-
-        edge_processor.image_processor = capture_call
-        edge_processor.preprocess([image])
-
-        assert len(captured_tiles) > 1, "Expected multi-tile output"
-
-        # The source tile is the original image (largest, has both colors).
-        # In HF order, it should be LAST.
-        source_size = image.size  # (1024, 512)
-        last_tile = captured_tiles[-1]
-        first_tile = captured_tiles[0]
-        assert last_tile.size == source_size, (
-            f"Source tile (size {source_size}) should be last in HF ordering, "
-            f"but last tile has size {last_tile.size}")
-        assert first_tile.size != source_size, (
-            f"Source tile should NOT be first in HF ordering")

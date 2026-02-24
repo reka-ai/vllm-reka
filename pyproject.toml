@@ -32,6 +32,11 @@ pytest = "*"
 [tool.poetry.plugins."vllm.general_plugins"]
 register_reka = "vllm_reka:register"
 
+[tool.pytest.ini_options]
+markers = [
+    "gpu: requires vllm and GPU hardware",
+]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
