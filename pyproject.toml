@@ -12,10 +12,19 @@ dependencies = [
     "Pillow",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest"]
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+vllm = ">=0.15.0,<0.16.0"
+tiktoken = "*"
+regex = "*"
+opencv-python = "*"
+numpy = "*"
+Pillow = "*"
 
-[project.entry-points."vllm.general_plugins"]
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[tool.poetry.plugins."vllm.general_plugins"]
 register_reka = "vllm_reka:register"
 
 [build-system]

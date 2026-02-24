@@ -14,14 +14,16 @@ from PIL import Image
 from transformers import SiglipImageProcessor
 
 from vllm.model_executor.models.utils import _merge_multimodal_embeddings
+from vllm.multimodal.inputs import NestedTensors
+from vllm.multimodal.processing import InputProcessingContext
 from vllm.multimodal.video import VIDEO_LOADER_REGISTRY, VideoLoader
 
 
 def merge_multimodal_embeddings(
     input_ids: torch.Tensor,
     inputs_embeds: torch.Tensor,
-    multimodal_embeddings,
-    placeholder_token_id,
+    multimodal_embeddings: NestedTensors,
+    placeholder_token_id: int | list[int] | tuple[int, ...],
 ) -> torch.Tensor:
     if isinstance(placeholder_token_id, (list, tuple)):
         is_multimodal = torch.isin(
@@ -45,7 +47,7 @@ _END_VIDEO_TOKEN = 100285
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
 
 
-def _get_default_video_num_frames(ctx) -> int:
+def _get_default_video_num_frames(ctx: InputProcessingContext) -> int:
     """Default video frame count from --media-io-kwargs, or vLLM default."""
     mm_config = ctx.get_mm_config()
     return (mm_config.media_io_kwargs.get("video")
@@ -59,6 +61,35 @@ class YasaVideoBackend(VideoLoader):
     Samples frames uniformly and returns timestamps for each frame.
     PyAV integration planned for more efficient long video handling.
     """
+
+    @staticmethod
+    def _sample_indices(num_frames: int, total_frames: int,
+                        sampling: str) -> np.ndarray:
+        if num_frames == -1 or total_frames <= num_frames:
+            return np.arange(total_frames, dtype=int)
+
+        if sampling == "uniform":
+            return np.linspace(0, total_frames - 1, num_frames, dtype=int)
+
+        if sampling == "random":
+            return np.sort(
+                np.random.choice(np.arange(total_frames),
+                                 num_frames,
+                                 replace=False)).astype(int)
+
+        if sampling == "chunk":
+            # Split timeline into chunks and pick one random frame per chunk.
+            chunk_size = total_frames // num_frames
+            extra_frames = total_frames % num_frames
+            sampled_frames = []
+            for i in range(num_frames):
+                start = i * chunk_size + min(i, extra_frames)
+                end = start + chunk_size + (1 if i < extra_frames else 0)
+                sampled_frames.append(int(np.random.randint(start, end)))
+            return np.array(sampled_frames, dtype=int)
+
+        raise ValueError(f"Unsupported video sampling mode: {sampling}. "
+                         "Expected one of: chunk, uniform, random.")
 
     def get_cv2_video_api(self):
         import cv2.videoio_registry as vr
@@ -100,13 +131,9 @@ class YasaVideoBackend(VideoLoader):
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             if total_frames <= 0 or fps <= 0:
                 raise RuntimeError("Invalid video metadata")
-            if num_frames == -1 or total_frames <= num_frames:
-                frame_indices = np.arange(total_frames)
-            else:
-                frame_indices = np.linspace(0,
-                                            total_frames - 1,
-                                            num_frames,
-                                            dtype=int)
+            sampling = kwargs.get("sampling", "uniform")
+            frame_indices = cls._sample_indices(num_frames, total_frames,
+                                                sampling=sampling)
             frames = np.empty((len(frame_indices), height, width, 3),
                               dtype=np.uint8)
             timestamps = [idx / fps for idx in frame_indices]
@@ -138,7 +165,8 @@ class YasaVideoBackend(VideoLoader):
                 "duration": total_frames / fps,
                 "frame_indices": frame_indices.tolist(),
                 "timestamps": timestamps,
-                "backend": "opencv-tempfile-uniform",
+                "backend": f"opencv-tempfile-{sampling}",
+                "sampling": sampling,
             }
             return frames, metadata
         finally:
@@ -284,11 +312,9 @@ class ImageProcessor:
 
     def get_max_yasa_image_tokens(self) -> int:
         if not USE_IMAGE_PATCHING:
-            result = self.config.num_query_tokens
-            return result
-        result = self.config.num_query_tokens * (
-            self.config.vision_max_tiles_num + 1)
-        return result
+            return self.config.num_query_tokens + 2  # +2 for start/end tokens
+        return self.config.num_query_tokens * (
+            self.config.vision_max_tiles_num + 1) + 2  # +2 for start/end tokens
 
     def get_num_image_tokens(self, image: Image.Image) -> int:
 

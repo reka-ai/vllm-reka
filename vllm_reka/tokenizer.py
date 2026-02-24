@@ -61,24 +61,14 @@ DEFAULT_CHAT_TEMPLATE = """
                 or item.get("image") is not none
                 or item.get("image_url") is not none -%}
 
-                {%- set ns.out =
-                    ns.out
-                    ~ "<image>"
-                    ~ "<REKA_IMG_TOKEN>"
-                    ~ "</image>"
-                -%}
+                {%- set ns.out = ns.out ~ "<REKA_IMG_TOKEN>" -%}
                 {%- set ns.prev_was_text = false -%}
 
             {%- elif item_type in ["video", "video_url"]
                 or item.get("video") is not none
                 or item.get("video_url") is not none -%}
 
-                {%- set ns.out =
-                    ns.out
-                    ~ "<video>"
-                    ~ "<REKA_IMG_TOKEN>"
-                    ~ "</video>"
-                -%}
+                {%- set ns.out = ns.out ~ "<video></video>" -%}
                 {%- set ns.prev_was_text = false -%}
             {%- endif -%}
         {%- endfor -%}
@@ -664,11 +654,10 @@ class YasaTokenizer(PreTrainedTokenizer):
         num_video_frames = 6 if num_video_frames is None else num_video_frames
 
         def image_builder(_: dict[str, Any]) -> list[str]:
-            return ["<image>"
-                    ] + ["<REKA_IMG_TOKEN>"] * num_img_tokens + ["</image>"]
+            return ["<REKA_IMG_TOKEN>"]
 
         def video_builder(_: dict[str, Any]) -> list[str]:
-            return (["<video>"] + ["<REKA_IMG_TOKEN>"] + ["</video>"])
+            return ["<video>", "</video>"]
 
         template_source = chat_template or getattr(self, "chat_template", None)
         if template_source:
@@ -734,8 +723,8 @@ class YasaTokenizer(PreTrainedTokenizer):
         )
 
     def create_token_type_ids_from_sequences(self,
-                                             token_ids_0,
-                                             token_ids_1=None) -> list[int]:
+                                             token_ids_0: list[int],
+                                             token_ids_1: list[int] | None = None) -> list[int]:
         return [0] * len(token_ids_0)
 
     @property
