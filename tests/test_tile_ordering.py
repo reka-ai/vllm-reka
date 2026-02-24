@@ -98,11 +98,6 @@ class TestEdgeV2TileOrdering:
         config.num_query_tokens = 64
         return YasaMMLMV2ImageProcessor(config)
 
-    @pytest.mark.xfail(
-        reason="Reordering from [source, patches] to [patches, source] "
-               "is not yet implemented in YasaMMLMV2ImageProcessor.preprocess",
-        strict=True,
-    )
     def test_edge_processor_reorders_tiles_to_hf_order(self, edge_processor):
         """Edge processor should output [patches..., source] for multi-tile images."""
         image = _make_two_color_image()

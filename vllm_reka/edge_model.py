@@ -653,6 +653,10 @@ class YasaMMLMV2ImageProcessor:
                     self.patch_size,
                     False,
                 )
+                # Reorder to [patches..., source] to match HF ordering.
+                # See: ../../../reka-code/vllm/vllm/model_executor/models/yasa_mmlm_v2.py:693
+                if len(image_tiles) > 1:
+                    image_tiles = list(image_tiles[1:]) + [image_tiles[0]]
                 tiles_per_image.append(len(image_tiles))
                 all_tiles.extend(image_tiles)
         else:
