@@ -29,7 +29,7 @@ Pillow = "*"
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 
-[tool.poetry.plugins."vllm.general_plugins"]
+[project.entry-points."vllm.general_plugins"]
 register_reka = "vllm_reka:register"
 
 [tool.pytest.ini_options]
