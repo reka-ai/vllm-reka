@@ -39,7 +39,7 @@ TIKTOKEN_SPECIAL_TOKENS = {
 DEFAULT_CHAT_TEMPLATE = """
 {%- macro render_content(content, num_img_tokens, num_video_frames) -%}
     {%- if content is string -%}
-        {{- content -}}
+        {{- content.replace("<REKA_IMG_TOKEN>\n", "<REKA_IMG_TOKEN>").replace("<video></video>\n", "<video></video>") -}}
     {%- elif content is sequence -%}
         {%- set ns = namespace(out="", prev_was_text=false) -%}
         {%- for item in content -%}
@@ -202,10 +202,21 @@ DEFAULT_CHAT_TEMPLATE = """
 """
 
 
+def _strip_placeholder_newlines(text: str) -> str:
+    """Strip newlines that vLLM inserts after media placeholders.
+
+    vLLM's string content format joins placeholders and text with '\\n'
+    via _get_full_multimodal_text_prompt. Strip those spurious newlines
+    so the prompt has no gap between the placeholder and the text."""
+    return (text
+            .replace("<REKA_IMG_TOKEN>\n", "<REKA_IMG_TOKEN>")
+            .replace("<video></video>\n", "<video></video>"))
+
+
 def normalize_message_content(content: Any) -> list[dict[str, Any]]:
     """Normalize content into a list of multimodal content dicts."""
     if isinstance(content, str):
-        return [{"type": "text", "text": content}]
+        return [{"type": "text", "text": _strip_placeholder_newlines(content)}]
     if isinstance(content, list):
         return content
     raise ValueError(

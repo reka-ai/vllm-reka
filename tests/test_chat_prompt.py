@@ -6,9 +6,12 @@ import json
 import pytest
 
 from vllm_reka.tokenizer import (
+    DEFAULT_CHAT_TEMPLATE,
     build_chat_prompt,
     normalize_message_content,
     _build_tools_block,
+    _render_chat_template,
+    _strip_placeholder_newlines,
 )
 
 
@@ -34,6 +37,19 @@ def _build(messages, *, add_gen=True, tools=None, thinking=None,
     )
 
 
+def _render(messages, *, add_gen=True, tools=None, thinking=None):
+    """Shorthand for rendering through the Jinja chat template."""
+    return _render_chat_template(
+        DEFAULT_CHAT_TEMPLATE,
+        {
+            "messages": messages,
+            "add_generation_prompt": add_gen,
+            "tools": tools,
+            "enable_thinking": thinking,
+        },
+    )
+
+
 # ── normalize_message_content ─────────────────────────────────────────
 
 
@@ -42,6 +58,16 @@ class TestNormalizeMessageContent:
     def test_string_input(self):
         result = normalize_message_content("hello")
         assert result == [{"type": "text", "text": "hello"}]
+
+    def test_string_strips_placeholder_newline(self):
+        result = normalize_message_content("<REKA_IMG_TOKEN>\nDescribe this.")
+        assert result == [{"type": "text",
+                           "text": "<REKA_IMG_TOKEN>Describe this."}]
+
+    def test_string_strips_video_placeholder_newline(self):
+        result = normalize_message_content("<video></video>\nDescribe this.")
+        assert result == [{"type": "text",
+                           "text": "<video></video>Describe this."}]
 
     def test_list_passthrough(self):
         items = [{"type": "text", "text": "hi"}]
@@ -227,6 +253,40 @@ class TestMultimodalContent:
             ],
         }])
         assert "human: <video></video>describe<sep>" in result
+
+    def test_image_string_content_no_newline(self):
+        """vLLM's string content format joins placeholder and text with \\n.
+        The prompt builder must strip that spurious newline."""
+        result = _build([{
+            "role": "user",
+            "content": "<REKA_IMG_TOKEN>\nWhat is this?",
+        }])
+        assert "human: <REKA_IMG_TOKEN>What is this?<sep>" in result
+        assert "\n" not in result.split("<sep>")[0].replace("human: ", "")
+
+    def test_video_string_content_no_newline(self):
+        """Same as above but for video placeholders."""
+        result = _build([{
+            "role": "user",
+            "content": "<video></video>\nDescribe this video.",
+        }])
+        assert "human: <video></video>Describe this video.<sep>" in result
+
+    def test_image_string_content_no_newline_jinja(self):
+        """Jinja template path: vLLM string format newline is stripped."""
+        result = _render([{
+            "role": "user",
+            "content": "<REKA_IMG_TOKEN>\nWhat is this?",
+        }])
+        assert "human: <REKA_IMG_TOKEN>What is this?<sep>" in result
+
+    def test_video_string_content_no_newline_jinja(self):
+        """Jinja template path: vLLM string format newline is stripped."""
+        result = _render([{
+            "role": "user",
+            "content": "<video></video>\nDescribe this video.",
+        }])
+        assert "human: <video></video>Describe this video.<sep>" in result
 
     def test_unsupported_content_type(self):
         with pytest.raises(ValueError, match="Unsupported content type"):
