@@ -736,6 +736,11 @@ class YasaMultiModalProcessor(BaseMultiModalProcessor[YasaProcessingInfo]):
     ) -> bool:
         return False
 
+    # TODO: Override _maybe_apply_prompt_updates to prevent double-expansion
+    # of multimodal placeholder tokens when the chat template already wraps
+    # them in <image>...</image> or <video>...</video> blocks.
+    # See edge_model.py YasaMMLMV2MultiModalProcessor for the implementation.
+
     def _get_mm_fields_config(
         self,
         hf_inputs: BatchFeature,

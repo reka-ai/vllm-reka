@@ -9,8 +9,8 @@ from vllm_reka.multimodal_utils import (
     _END_IMAGE_TOKEN,
     _START_VIDEO_TOKEN,
     _END_VIDEO_TOKEN,
+    _rewrite_mm_blocks,
 )
-from vllm_reka.edge_model import _rewrite_mm_blocks
 
 P = _IMAGE_PLACEHOLDER_TOKEN_ID  # 100278 placeholder
 SI = _START_IMAGE_TOKEN           # 100279 <image>

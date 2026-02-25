@@ -47,6 +47,50 @@ _END_VIDEO_TOKEN = 100285
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
 
 
+def _rewrite_mm_blocks(
+    token_ids: list[int],
+    start_id: int,
+    end_id: int,
+    counts: list[int],
+) -> list[int]:
+    """Rewrite multimodal placeholder blocks to contain exact token counts.
+
+    Scans for start_id...end_id pairs. Each block is rewritten to contain
+    exactly counts[i] placeholder tokens. Extra blocks beyond len(counts)
+    are dropped entirely.
+    """
+    if not counts:
+        return token_ids
+
+    result: list[int] = []
+    block_idx = 0
+    i = 0
+    while i < len(token_ids):
+        if token_ids[i] == start_id:
+            # Find matching end token
+            j = i + 1
+            while j < len(token_ids) and token_ids[j] != end_id:
+                j += 1
+            if j >= len(token_ids):
+                # No matching end token — keep as-is
+                result.append(token_ids[i])
+                i += 1
+                continue
+            # Found a complete block [i]=start, [j]=end
+            if block_idx < len(counts):
+                result.append(start_id)
+                result.extend([_IMAGE_PLACEHOLDER_TOKEN_ID] * counts[block_idx])
+                result.append(end_id)
+            # else: drop the block entirely
+            block_idx += 1
+            i = j + 1
+        else:
+            result.append(token_ids[i])
+            i += 1
+
+    return result
+
+
 def _get_default_video_num_frames(ctx: InputProcessingContext) -> int:
     """Default video frame count from --media-io-kwargs, or vLLM default."""
     mm_config = ctx.get_mm_config()
