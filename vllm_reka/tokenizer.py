@@ -39,7 +39,7 @@ TIKTOKEN_SPECIAL_TOKENS = {
 DEFAULT_CHAT_TEMPLATE = """
 {%- macro render_content(content, num_img_tokens, num_video_frames) -%}
     {%- if content is string -%}
-        {{- content.replace("<REKA_IMG_TOKEN>\n", "<REKA_IMG_TOKEN>").replace("<video></video>\n", "<video></video>") -}}
+        {{- content -}}
     {%- elif content is sequence -%}
         {%- set ns = namespace(out="", prev_was_text=false) -%}
         {%- for item in content -%}
@@ -701,6 +701,7 @@ class YasaTokenizer(PreTrainedTokenizer):
                 video_token_builder=video_builder,
                 enable_thinking=enable_thinking,
             )
+        prompt = _strip_placeholder_newlines(prompt)
         if not tokenize:
             return prompt
 
