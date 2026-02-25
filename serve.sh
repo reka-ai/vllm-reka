@@ -34,9 +34,9 @@ echo ""
 export USE_IMAGE_PATCHING=1
 export VLLM_VIDEO_LOADER_BACKEND=yasa
 #export VLLM_TORCH_PROFILER_DIR=/app/anton/traces/reka-spark-vl
-#export VLLM_USE_V1=1
+export VLLM_USE_V1=1
 #export VLLM_FLASH_ATTN_VERSION=3
-#export VLLM_HTTP_TIMEOUT_KEEP_ALIVE=300
+export VLLM_HTTP_TIMEOUT_KEEP_ALIVE=300
 
 vllm serve "$MODEL_PATH" \
     --served-model-name yasa-edge-model \
