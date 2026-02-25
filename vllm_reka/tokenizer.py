@@ -216,7 +216,7 @@ def _strip_placeholder_newlines(text: str) -> str:
 def normalize_message_content(content: Any) -> list[dict[str, Any]]:
     """Normalize content into a list of multimodal content dicts."""
     if isinstance(content, str):
-        return [{"type": "text", "text": _strip_placeholder_newlines(content)}]
+        return [{"type": "text", "text": content}]
     if isinstance(content, list):
         return content
     raise ValueError(
@@ -701,7 +701,6 @@ class YasaTokenizer(PreTrainedTokenizer):
                 video_token_builder=video_builder,
                 enable_thinking=enable_thinking,
             )
-        prompt = _strip_placeholder_newlines(prompt)
         if not tokenize:
             return prompt
 
@@ -761,6 +760,7 @@ class YasaTokenizer(PreTrainedTokenizer):
 
     def _tokenize(self, text: str, **kwargs: Any) -> list[bytes]:
         """Convert a string into a sequence of tokens (bytes)."""
+        text = _strip_placeholder_newlines(text)
         return [
             self._convert_id_to_token(t)
             for t in self.tiktoken.encode(text, allowed_special="all")
