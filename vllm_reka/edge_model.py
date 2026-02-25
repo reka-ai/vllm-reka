@@ -41,6 +41,50 @@ DEFAULT_IMAGE_SIZE = 224
 USE_IMAGE_PATCHING = os.getenv("USE_IMAGE_PATCHING", "1") == "1"
 
 
+def _rewrite_mm_blocks(
+    token_ids: list[int],
+    start_id: int,
+    end_id: int,
+    counts: list[int],
+) -> list[int]:
+    """Rewrite multimodal placeholder blocks to contain exact token counts.
+
+    Scans for start_id...end_id pairs. Each block is rewritten to contain
+    exactly counts[i] placeholder tokens. Extra blocks beyond len(counts)
+    are dropped entirely.
+    """
+    if not counts:
+        return token_ids
+
+    result: list[int] = []
+    block_idx = 0
+    i = 0
+    while i < len(token_ids):
+        if token_ids[i] == start_id:
+            # Find matching end token
+            j = i + 1
+            while j < len(token_ids) and token_ids[j] != end_id:
+                j += 1
+            if j >= len(token_ids):
+                # No matching end token — keep as-is
+                result.append(token_ids[i])
+                i += 1
+                continue
+            # Found a complete block [i]=start, [j]=end
+            if block_idx < len(counts):
+                result.append(start_id)
+                result.extend([_IMAGE_PLACEHOLDER_TOKEN_ID] * counts[block_idx])
+                result.append(end_id)
+            # else: drop the block entirely
+            block_idx += 1
+            i = j + 1
+        else:
+            result.append(token_ids[i])
+            i += 1
+
+    return result
+
+
 class YasaMMLMV2ImagePixelInputs(TypedDict):
     type: Literal["pixel_values"]
     data: torch.Tensor
@@ -959,6 +1003,49 @@ class YasaMMLMV2MultiModalProcessor(
         tokenization_kwargs: Mapping[str, object],
     ) -> bool:
         return False
+
+    def _maybe_apply_prompt_updates(self, mm_items, prompt_ids, mm_kwargs,
+                                    mm_prompt_updates, is_update_applied):
+        """Prevent double-expansion when prompt already contains wrapped blocks.
+
+        When the serving layer's chat template has already wrapped placeholders
+        in <image>...</image> or <video>...</video> blocks, the base class would
+        match ONE placeholder inside the block and insert a full expansion,
+        producing duplicate start tokens and too many placeholders.
+
+        Instead, we rewrite existing blocks to the exact counts the MM processor
+        expects, then tell the base class that updates are already applied.
+        """
+        if not is_update_applied:
+            has_wrapped = (
+                (_START_IMAGE_TOKEN in prompt_ids
+                 and _END_IMAGE_TOKEN in prompt_ids)
+                or (_START_VIDEO_TOKEN in prompt_ids
+                    and _END_VIDEO_TOKEN in prompt_ids))
+            if has_wrapped:
+                image_counts = [
+                    sum(1 for t in upd.content.full
+                        if t == _IMAGE_PLACEHOLDER_TOKEN_ID)
+                    for item_updates in mm_prompt_updates.get("image", [])
+                    for upd in item_updates[:1]
+                ]
+                video_counts = [
+                    sum(1 for t in upd.content.full
+                        if t == _IMAGE_PLACEHOLDER_TOKEN_ID)
+                    for item_updates in mm_prompt_updates.get("video", [])
+                    for upd in item_updates[:1]
+                ]
+                prompt_ids = _rewrite_mm_blocks(
+                    prompt_ids, _START_IMAGE_TOKEN, _END_IMAGE_TOKEN,
+                    image_counts)
+                prompt_ids = _rewrite_mm_blocks(
+                    prompt_ids, _START_VIDEO_TOKEN, _END_VIDEO_TOKEN,
+                    video_counts)
+                is_update_applied = True
+
+        return super()._maybe_apply_prompt_updates(
+            mm_items, prompt_ids, mm_kwargs, mm_prompt_updates,
+            is_update_applied)
 
     def _get_mm_fields_config(
         self,
