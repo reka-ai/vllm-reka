@@ -49,4 +49,5 @@ vllm serve "$MODEL_PATH" \
     --limit-mm-per-prompt "{\"image\": $MAX_IMAGES, \"video\": $MAX_VIDEOS}" \
     --media-io-kwargs "{\"video\": {\"num_frames\": 6, \"sampling\": \"${VIDEO_SAMPLING}\"}}" \
     --tensor-parallel-size "$TP_SIZE" \
+    --chat-template-content-format openai \
     --trust-remote-code
