@@ -1,0 +1,45 @@
+[project]
+name = "vllm-reka"
+version = "0.1.0"
+description = "vLLM plugin for Reka models"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "vllm>=0.15.0,<0.16.0; sys_platform == 'linux'",
+    "torch",
+    "transformers",
+    "tiktoken",
+    "regex",
+    "opencv-python",
+    "numpy",
+    "Pillow",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+vllm = ">=0.15.0,<0.16.0"
+tiktoken = "*"
+regex = "*"
+opencv-python = "*"
+numpy = "*"
+Pillow = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[project.entry-points."vllm.general_plugins"]
+register_reka = "vllm_reka:register"
+
+[tool.pytest.ini_options]
+markers = [
+    "gpu: requires vllm and GPU hardware",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["vllm_reka"]

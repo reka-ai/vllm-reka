@@ -1,0 +1,33 @@
+__pycache__
+*.pyc
+*.pem
+.venv
+venv/*
+testvenv/*
+.secrets
+*.ipynb_checkpoints
+test-results.xml
+var/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# vscode
+.vscode/
+
+# MacOS stuff
+.DS_Store
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytest
+.pytest_cache
+
+# reka-api specific 
+tests/load/api_keys.txt
+*__debug__*
