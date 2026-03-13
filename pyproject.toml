@@ -12,6 +12,7 @@ dependencies = [
     "opencv-python",
     "numpy",
     "Pillow",
+    "bitsandbytes>=0.46.1",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,7 @@ regex = "*"
 opencv-python = "*"
 numpy = "*"
 Pillow = "*"
+bitsandbytes = ">=0.46.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
