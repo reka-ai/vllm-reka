@@ -1,3 +1,5 @@
+[![Join our Discord](https://img.shields.io/badge/Discord-join%20now-blue?logo=discord)](https://link.reka.ai/discord)  [![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97_Hugging_Face-_oItsMineZ)](https://huggingface.co/RekaAI/reka-edge-2603)
+
 # vllm-reka
 
 This plugin serves [Reka Edge](https://huggingface.co/RekaAI/reka-edge-2603) — a 7B multimodal model with frontier-class image understanding, video analysis, object detection, and tool use — via vLLM.
