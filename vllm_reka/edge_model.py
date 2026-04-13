@@ -478,6 +478,9 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
             all_embeddings.extend(video_embs)
         return all_embeddings
 
+    def get_language_model(self) -> torch.nn.Module:
+        return self.language_model
+
     def get_input_embeddings(
         self,
         input_ids: torch.Tensor,
@@ -785,6 +788,9 @@ class YasaMMLMV2VideoProcessor:
 class YasaMMLMV2ProcessingInfo(BaseProcessingInfo):
     """Processing info for YASA Edge MMLM model."""
 
+    def get_data_parser(self) -> MultiModalDataParser:
+        return MultiModalDataParser(video_needs_metadata=True)
+
     def get_tokenizer(self) -> PreTrainedTokenizer:
         tokenizer = self.ctx.tokenizer
         assert isinstance(tokenizer, PreTrainedTokenizer)
@@ -900,7 +906,7 @@ class YasaMMLMV2DummyInputsBuilder(
         prompt_text = " ".join(parts)
         return ProcessorInputs(
             prompt=prompt_text,
-            mm_data=mm_data,
+            mm_data_items=self.info.parse_mm_data(mm_data),
         )
 
     def get_dummy_image(self) -> Image.Image:
@@ -912,9 +918,6 @@ class YasaMMLMV2DummyInputsBuilder(
 class YasaMMLMV2MultiModalProcessor(
         BaseMultiModalProcessor[YasaMMLMV2ProcessingInfo]):
     """Multimodal processor for YASA Edge MMLM model."""
-
-    def _get_data_parser(self) -> MultiModalDataParser:
-        return MultiModalDataParser(video_needs_metadata=True)
 
     def _call_hf_processor(
         self,

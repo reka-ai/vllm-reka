@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "vLLM plugin for Reka models"
 requires-python = ">=3.10,<3.14"
 dependencies = [
-    "vllm>=0.15.0,<0.16.0; sys_platform == 'linux'",
+    "vllm>=0.17.0,<0.18.0; sys_platform == 'linux'",
     "torch",
     "transformers",
     "tiktoken",
@@ -20,7 +20,7 @@ dev = ["pytest"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
-vllm = ">=0.15.0,<0.16.0"
+vllm = ">=0.17.0,<0.18.0"
 tiktoken = "*"
 regex = "*"
 opencv-python = "*"
