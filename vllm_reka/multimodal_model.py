@@ -643,7 +643,7 @@ class YasaDummyInputsBuilder(BaseDummyInputsBuilder[YasaProcessingInfo]):
         prompt_text = " ".join(parts)
         return ProcessorInputs(
             prompt=prompt_text,
-            mm_data=mm_data,
+            mm_data_items=self.info.parse_mm_data(mm_data),
         )
 
     def get_max_yasa_dummy_image(self) -> Image.Image:

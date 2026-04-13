@@ -906,7 +906,7 @@ class YasaMMLMV2DummyInputsBuilder(
         prompt_text = " ".join(parts)
         return ProcessorInputs(
             prompt=prompt_text,
-            mm_data=mm_data,
+            mm_data_items=self.info.parse_mm_data(mm_data),
         )
 
     def get_dummy_image(self) -> Image.Image:
