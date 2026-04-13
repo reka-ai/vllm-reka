@@ -478,6 +478,9 @@ class YasaMMLMV2ForConditionalGeneration(nn.Module, SupportsMultiModal,
             all_embeddings.extend(video_embs)
         return all_embeddings
 
+    def get_language_model(self) -> torch.nn.Module:
+        return self.language_model
+
     def get_input_embeddings(
         self,
         input_ids: torch.Tensor,

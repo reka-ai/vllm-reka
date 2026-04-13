@@ -7,7 +7,7 @@ import regex as re
 import torch
 from torch import nn
 
-from vllm.attention.layer import Attention
+from vllm.model_executor.layers.attention import Attention
 from vllm.compilation.decorators import support_torch_compile
 from vllm.config import CacheConfig, VllmConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
