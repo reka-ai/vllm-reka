@@ -788,6 +788,9 @@ class YasaMMLMV2VideoProcessor:
 class YasaMMLMV2ProcessingInfo(BaseProcessingInfo):
     """Processing info for YASA Edge MMLM model."""
 
+    def get_data_parser(self) -> MultiModalDataParser:
+        return MultiModalDataParser(video_needs_metadata=True)
+
     def get_tokenizer(self) -> PreTrainedTokenizer:
         tokenizer = self.ctx.tokenizer
         assert isinstance(tokenizer, PreTrainedTokenizer)
@@ -915,9 +918,6 @@ class YasaMMLMV2DummyInputsBuilder(
 class YasaMMLMV2MultiModalProcessor(
         BaseMultiModalProcessor[YasaMMLMV2ProcessingInfo]):
     """Multimodal processor for YASA Edge MMLM model."""
-
-    def _get_data_parser(self) -> MultiModalDataParser:
-        return MultiModalDataParser(video_needs_metadata=True)
 
     def _call_hf_processor(
         self,
